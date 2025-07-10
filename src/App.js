@@ -65,7 +65,10 @@ export const average = (arr) =>
 // *****************************************************************
 export default function App() {
   const [movies, setMovies] = useState([]);
-  const [watched, setWatched] = useState([]);
+  const [watched, setWatched] = useState(() => {
+    const stored = localStorage.getItem("watched");
+    return stored ? JSON.parse(stored) : [];
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const tempQuery = "old";
@@ -79,6 +82,15 @@ export default function App() {
   function onCloseMovie() {
     setSelectedId(null);
   }
+  function handleAddMovie(movie) {
+    if (watched.find((item) => item.imdbID === movie.imdbID)) return;
+    setWatched((prev) => [...prev, movie]);
+    onCloseMovie();
+  }
+
+  useEffect(() => {
+    localStorage.setItem("watched", JSON.stringify(watched));
+  }, [watched]);
 
   useEffect(
     function () {
@@ -146,9 +158,10 @@ export default function App() {
         <Box>
           {selectedId ? (
             <SelectedMovieDetails
-              setWatched={setWatched}
               selectedId={selectedId}
+              setSelectedId={setSelectedId}
               onCloseMovie={onCloseMovie}
+              onAddMovie={handleAddMovie}
             />
           ) : (
             <>
@@ -174,21 +187,43 @@ function ErrorMessage({ message }) {
   );
 }
 
-function SelectedMovieDetails({ selectedId, onCloseMovie, setWatched }) {
-  const [selectedMovie, setSelectedMovie] = useState(null);
+function SelectedMovieDetails({ selectedId, onCloseMovie, onAddMovie }) {
+  const [selectedMovie, setSelectedMovie] = useState({});
+  const [isRated, setIsRated] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [userRating, setUserRating] = useState(0);
 
   function handleRateMovie(rating) {
     setUserRating(rating);
-    setWatched((prev) => [
-      ...prev,
-      {
-        ...selectedMovie,
-        userRating: rating,
-      },
-    ]);
+    setIsRated(true);
+  }
+
+  const {
+    imdbID,
+    Title: title,
+    Year: year,
+    Poster: poster,
+    Runtime: runtime,
+    imdbRating,
+    Plot: plot,
+    Released: released,
+    Actors: actors,
+    Director: director,
+    Genre: genre,
+  } = selectedMovie;
+
+  function handleAdd() {
+    const newMovie = {
+      imdbID: selectedId,
+      title,
+      year,
+      poster,
+      runtime: Number(runtime.split(" ").at(0)),
+      imdbRating: Number(imdbRating),
+      userRating,
+    };
+    onAddMovie(newMovie);
   }
 
   useEffect(
@@ -230,19 +265,16 @@ function SelectedMovieDetails({ selectedId, onCloseMovie, setWatched }) {
             <button className="btn-back" onClick={onCloseMovie}>
               ←
             </button>
-            <img
-              src={selectedMovie?.Poster}
-              alt={`Poster of ${selectedMovie?.Title}`}
-            />
+            <img src={poster} alt={`Poster of ${title}`} />
             <div className="details-overview">
-              <h2>{selectedMovie?.Title}</h2>
+              <h2>{title}</h2>
               <p>
-                {selectedMovie?.Released} • {selectedMovie?.Runtime}
+                {released} • {runtime}
               </p>
-              <p>{selectedMovie?.Genre}</p>
+              <p>{genre}</p>
               <p>
                 <span>⭐️</span>
-                <span>{selectedMovie?.imdbRating} IMDB rating</span>
+                <span>{imdbRating} IMDB rating</span>
               </p>
             </div>
           </header>
@@ -253,13 +285,17 @@ function SelectedMovieDetails({ selectedId, onCloseMovie, setWatched }) {
                 maxRating={10}
                 onSetRating={handleRateMovie}
               />
-              {/* <button className="btn-add">+ Add to list</button> */}
+              {userRating > 0 && (
+                <button onClick={handleAdd} className="btn-add">
+                  + Add to list
+                </button>
+              )}
             </div>
             <p>
-              <em>{selectedMovie?.Plot}</em>
+              <em>{plot}</em>
             </p>
-            <p>Starring {selectedMovie?.Actors}</p>
-            <p>Directed by {selectedMovie?.Director}</p>
+            <p>Starring {actors}</p>
+            <p>Directed by {director}</p>
           </section>
         </>
       )}
